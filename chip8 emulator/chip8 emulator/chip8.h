@@ -8,12 +8,18 @@
 using namespace std;
 
 class Chip8 {
-
+public:
+	Chip8() {}
 
 	void initialize();
 	void loadRom(string fileName);
 	void runCycle();
+	void draw(sf::RenderWindow &window);
+
+	void run();
+
 	void clearScreen();
+	void displayvReg();
 
 	uint8_t vReg[16];            //the 16 data registers
 	uint8_t addr[4096];     //represents each memory address
@@ -28,8 +34,8 @@ class Chip8 {
 	uint8_t soundTimer;
 
 	ifstream rom;
-	bool draw;
-	bool waitForKey;
+	bool canDraw=false;
+	bool waitForKey=false;
 
 	uint8_t keys[16] = {
 	/*	'0','1','2','3',
