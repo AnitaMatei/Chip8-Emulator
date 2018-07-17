@@ -8,19 +8,35 @@ void Chip8::clearScreen() {
 
 void Chip8::draw(sf::RenderWindow &window) {
 	window.clear();
+	gui.draw();
 	for (int i = 0; i < 64 * 32; i++) {
-		sf::RectangleShape pixelRect(sf::Vector2f(10,10));
+		sf::RectangleShape pixelRect(sf::Vector2f(0,0));
 		pixelRect.setSize(sf::Vector2f(10, 10));
-		pixelRect.setPosition(i % 64*10, i / 32*10);
+		pixelRect.setPosition((i % 64)*10, ((i / 32)*10));
 		if (pixels[i] == 0x1) {
-			pixelRect.setFillColor(sf::Color::White);
+			pixelRect.setFillColor(sf::Color::Yellow);
+			window.draw(pixelRect);
 		}
-		else pixelRect.setFillColor(sf::Color::Black);
-		window.draw(pixelRect);
 	}
 	window.display();
 	canDraw = false;
-	cout << "yea\n";
+}
+
+void Chip8::checkForInput(sf::Event eve) {
+	for (int i = 0; i < 16; i++)
+	{
+		if (sf::Keyboard::isKeyPressed(sfmlKeys[i]))
+		{
+			if(keys[i]==0x0)
+				cout << "Pressed " << hex << i << dec << " key.\n";
+			keys[i] = 0x1;
+		}
+		else if (eve.type == sf::Event::KeyReleased && eve.key.code == sfmlKeys[i])
+		{
+			cout << "Released " << hex << i << dec << " key.\n";
+			keys[i] = 0x0;
+		}
+	}
 }
 
 
@@ -30,8 +46,8 @@ void Chip8::initialize() {
 	I = 0x0;
 	pc = 0x200;
 	sp = 0x0;
-	delayTimer = 0;
-	soundTimer = 0;
+	delayTimer = 0x0;
+	soundTimer = 0x0;
 
 	for (int i = 0; i < 16; i++)
 	{
@@ -43,7 +59,7 @@ void Chip8::initialize() {
 	}
 	for (int i = 80; i < 4096; i++)
 	{
-		addr[i] = 0;
+		addr[i] = 0x0;
 	}
 }
 
@@ -60,12 +76,52 @@ void Chip8::loadRom(string fileName) {
 	rom.close();
 }
 
+void Chip8::run() {
 
+	sf::RenderWindow window{ { 1280, 720 }, "Window" };
+	window.setVerticalSyncEnabled(true);
+
+	gui.setTarget(window);
+	vector <tgui::Button::Ptr> buttons;
+
+	cout << "ye";
+	for (int i = 0; i < 16; i++)
+	{
+		tgui::Button::Ptr c = tgui::Button::create();
+		buttons.push_back(c);
+		gui.add(buttons[i]);
+		if(i<10)
+			buttons[i]->setText(string(1,'0'+i));
+		else buttons[i]->setText(string(1, '0' + i+8));
+		buttons[i]->setSize(50, 50);
+		buttons[i]->setPosition(800 + ((i % 4)*50), 400 + ((i /4)*50));
+		buttons[i]->setEnabled(1);
+	//	buttons[i]->connect("pressed", buttonPress);
+	}
+
+	while (window.isOpen())
+	{
+		sf::Event event;
+		while (window.pollEvent(event))
+		{
+			if (event.type == sf::Event::Closed)
+				window.close();
+			gui.handleEvent(event);
+			checkForInput(event);
+		}
+			runCycle();
+
+		if (canDraw)
+			draw(window);
+
+	}
+}
 
 
 void Chip8::runCycle() {
 	opcode = (addr[pc] << 8) | addr[pc + 1];
-
+	cout << hex << (int)opcode << endl;
+	//displayvReg();
 	switch (opcode & 0xF000) {          //organizing cases by the first nibble from left
 		//0x0---
 		case 0x0000:
@@ -113,18 +169,18 @@ void Chip8::runCycle() {
 			break;
 		//0x5XY0
 		case 0x5000:
-			if (vReg[(opcode & 0x0F00)>>8] == vReg[(opcode & 0x0F00)>>4])       //if VX==VY skip an opcode
+			if (vReg[(opcode & 0x0F00)>>8] == vReg[(opcode & 0x00F0)>>4])       //if VX==VY skip an opcode
 				pc += 4;
 			else pc += 2;
 			break;
 		//0x6XNN
 		case 0x6000:									//sets VX to NN.
-			vReg[(opcode & 0x0F00)>>8] = opcode & 0x00FF;
+			vReg[(opcode & 0x0F00)>>8] = (opcode & 0x00FF);
 			pc += 2;
 			break;
 		//0x7XNN
 		case 0x7000:							//adds NN to VX. 
-			vReg[(opcode & 0x0F00)>>8] += opcode & 0x00FF;
+			vReg[(opcode & 0x0F00)>>8] += (opcode & 0x00FF);
 			pc += 2;
 			break;
 		//0x8XY-
@@ -137,29 +193,30 @@ void Chip8::runCycle() {
 					break;
 				//0x8XY1
 				case 0x0001:				//sets VX to VX or VY.
-					vReg[(opcode & 0x0F00)>>8] = vReg[(opcode & 0x0F00)>>8] | vReg[(opcode & 0x00F0)>>4];
+					vReg[(opcode & 0x0F00)>>8] |= vReg[(opcode & 0x00F0)>>4];
 					pc += 2;
 					break;
 				//0x8XY2
 				case 0x0002:				//Sets VX to VX and VY
-					vReg[(opcode & 0x0F00)>>8] = vReg[(opcode & 0x0F00)>>8] & vReg[(opcode & 0x00F0)>>4];
+					vReg[(opcode & 0x0F00)>>8] &=  vReg[(opcode & 0x00F0)>>4];
 					pc += 2;
 					break;
 				//0x8XY3
 				case 0x0003:			//Sets VX to VX xor VY.
-					vReg[(opcode & 0x0F00)>>8] = vReg[(opcode & 0x0F00)>>8] ^ vReg[(opcode & 0x00F0)>>4];
+					vReg[(opcode & 0x0F00)>>8] ^= vReg[(opcode & 0x00F0)>>4];
 					pc += 2;
 					break;
 				//0x8XY4
-				case 0x0004: {								//Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-					uint16_t cvReg = vReg[(opcode & 0x0F00)>>8] + vReg[(opcode & 0x00F0)>>4];   //used for checking if theres a bit carried when summing 2 bytes
+				case 0x0004: 								//Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
+				{
+					uint16_t cvReg = vReg[(opcode & 0x0F00) >> 8] + vReg[(opcode & 0x00F0) >> 4];   //used for checking if theres a bit carried when summing 2 bytes
 					if ((cvReg & 0xFF00) != 0x0)
 						vReg[0xF] = 0x1;
 					else vReg[0xF] = 0x0;
-					vReg[(opcode & 0x0F00)>>8] = cvReg & 0xFFFF;
+					vReg[(opcode & 0x0F00) >> 8] = cvReg & 0x00FF;
 					pc += 2;
-					break;
 				}
+					break;
 				//0x8XY5
 				case 0x0005:					//VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
 					if (vReg[(opcode & 0x0F00)>>8] > vReg[(opcode & 0x00F0)>>4])
@@ -169,10 +226,10 @@ void Chip8::runCycle() {
 					pc += 2;
 					break;
 				//0x8XY6
-				case 0x0006:			//Shifts VY right by one and stores the result to VX (VY remains unchanged).
-										//VF is set to the value of the least significant bit of VY before the shift.
-					vReg[0xF] = vReg[(opcode & 0x00F0)>>4] & 0x01;
-					vReg[(opcode & 0x0F00)>>8] = vReg[(opcode & 0x00F0)>>4] >> 1;
+				case 0x0006:			//Shifts VX right by one.
+										//VF is set to the value of the least significant bit of VX before the shift.
+					vReg[0xF] = vReg[(opcode & 0x0F00)>>8] & 0x01;
+					vReg[(opcode & 0x0F00)>>8] >>= 1;
 					pc += 2;
 					break;
 				//0x8XY7
@@ -184,10 +241,10 @@ void Chip8::runCycle() {
 					pc += 2;
 					break;
 				//0x8XYE
-				case 0x000E:			//shifts VY's bits to the left by one and copies the result to VX.
-										// VF is set to the value of the MSB of VY before the shift.
-					vReg[0xF] = vReg[(opcode & 0x00F0)>>4] & 0x80;
-					vReg[(opcode & 0x0F00)>>8] = vReg[(opcode & 0x00F0)>>4] = vReg[(opcode & 0x00F0)>>4] << 1;
+				case 0x000E:			//shifts VX's bits to the left by one.
+										// VF is set to the value of the MSB of VX before the shift.
+					vReg[0xF] = vReg[(opcode & 0x0F00)>>8] & 0x80;
+					vReg[(opcode & 0x0F00)>>8] <<= 1;
 					pc += 2;
 					break;
 			}
@@ -209,28 +266,32 @@ void Chip8::runCycle() {
 			break;
 			//0xCXNN
 		case 0xC000:			//sets vx to the result of a random number & NN
-			vReg[(opcode & 0x0F00)>>8] = (rand() % 0xFF) & (opcode & 0x00FF);
+			vReg[(opcode & 0x0F00)>>8] = (rand() % 0x100) & (opcode & 0x00FF);
 			pc += 2;
 			break;
 			//0xDXYN
 		case 0xD000: {			//draws a sprite of 8 x N at (VX,VY). if any pixel goes from 1 to 0 VF=1, 0 otherwise
-			uint8_t xPixel = vReg[(opcode & 0x0F00)>>8];       //the coordinates of a pixel from the data registry, each byte represents a register value
-			uint8_t yPixel = vReg[(opcode & 0x00F0)>>4];
+			uint8_t xPixel = vReg[(opcode & 0x0F00) >> 8];       //the coordinates of a pixel from the data registry, each byte represents a register value
+			uint8_t yPixel = vReg[(opcode & 0x00F0) >> 4];
+			vReg[0xF] = 0x0;
 			for (uint8_t i = 0; i < (opcode & 0x000F); i++) {
 				uint8_t spriteRow = addr[I + i];
-				for (uint8_t j = 0; j < 0x08; j++)
+				for (uint8_t j = 0; j<0x08; j++)
 				{
-					//cout <<hex<< "yPixel: " << (int)vReg[(opcode & 0x00F0) >> 4] << "  xPixel: " << (int)vReg[(opcode & 0x0F00) >> 8] <<dec<<endl;
-					pixels[i + xPixel + ((j + yPixel) * 64)] ^= (spriteRow >> j) & 0x1;
-					if (pixels[i + xPixel+((j + yPixel)*64)]==0x01)      //if a pixel switched from set to unset, VF is set to 1
-						vReg[0xF] = 0x1;
-					else vReg[0xF] = 0x0;
+					uint8_t cp = pixels[j + xPixel + ((i + yPixel) * 64)];
+					uint8_t rowBit = (spriteRow) & (0x80>>j);                 //represents each bit in the current row, starting with the msb
+
+					if (rowBit) {
+						if (pixels[j + xPixel + ((i + yPixel) * 64)])
+							vReg[0xF] = 1;
+						pixels[j + xPixel + ((i + yPixel) * 64)] ^= 1;
+					}
 				}
 			}
 			canDraw = true;
 			pc += 2;
-			break;
 		}
+			break;
 		//0xEX--
 		case 0xE000:	
 			switch (opcode & 0x000F) {			
@@ -242,7 +303,7 @@ void Chip8::runCycle() {
 					break;
 				//0xEXA1
 				case 0x0001:			////skips an opcode if the key in VX is not pressed
-					if (keys[vReg[(opcode & 0x0F00)>>8]] != 0x1)
+					if (keys[vReg[(opcode & 0x0F00)>>8]] == 0x0)
 						pc += 4;
 					else pc += 2;
 					break;
@@ -257,9 +318,19 @@ void Chip8::runCycle() {
 					pc += 2;
 					break;
 				//0xFX0A
-				case 0x000A:			//program pauses while waiting for a key press
-					waitForKey = true;
+				case 0x000A: {			//program pauses while waiting for a key press
+					bool ok = false;
+					for (uint8_t i = 0; i < 16; i++)
+						if (keys[i])
+						{
+							vReg[(opcode & 0x0F00) >> 8] = i;
+							ok = true;
+							break;
+						}
+					if (!ok)
+						return;
 					pc += 2;
+				}
 					break;
 				//0xFX15
 				case 0x0015:			//sets delay timer to VX
@@ -273,33 +344,38 @@ void Chip8::runCycle() {
 					break;
 				//0xFX1E
 				case 0x001E:			//adds VX to I
+					if (I + vReg[(opcode & 0x0F00) >> 8] > 0xFFF)
+						vReg[0xF] = 1;
+					else vReg[0xF] = 1;
 					I += vReg[(opcode & 0x0F00)>>8];
 					pc += 2;
 					break;
 				//0xFX29
 				case 0x0029:			//sets I to the location of the character in VX
-					I = vReg[opcode & 0x0F00 >> 8] * 0x05;			//each character is 8x5 bits
+					I = vReg[opcode & 0x0F00 >> 8] * 0x5;			//each character is 8x5 bits
 					pc += 2;
 					break;
 				//0xFX33
 				case 0x0033:				//store the binary coded decimal equivalent of VX at addresses I,I+1,I+2
 					addr[I] = vReg[(opcode & 0x0F00)>>8] / 100;
-					addr[I + 1] = vReg[(opcode & 0x0F00)>>8] / 10 % 10;
-					addr[I + 2] = vReg[(opcode & 0x0F00)>>8] % 100;
+					addr[I + 1] = (vReg[(opcode & 0x0F00)>>8] / 10) % 10;
+					addr[I + 2] = vReg[(opcode & 0x0F00)>>8] % 10;
 					pc += 2;
 					break;
 				//0xFX55
 				case 0x0055:			//stores V0 to VX in memory starting at address I
-					for (uint8_t i = 0; i < ((opcode & 0x0F00) >> 8); i++) {
+					for (uint8_t i = 0; i <= ((opcode & 0x0F00) >> 8); i++) {
 						addr[I + i] = vReg[i];
 					}
+					I += ((opcode & 0x0F00) >> 8)+1;
 					pc += 2;
 					break;
 				//0xFX65
 				case 0x0065:			//fills V0 to VX with values from memory starting at address I
-					for (uint8_t i = 0; i < ((opcode & 0x0F00) >> 8); i++) {
+					for (uint8_t i = 0; i <= ((opcode & 0x0F00) >> 8); i++) {
 						vReg[i]=addr[I + i];
 					}
+					I += ((opcode & 0x0F00) >> 8)+1;
 					pc += 2;
 					break;
 
@@ -319,29 +395,6 @@ void Chip8::runCycle() {
 }
 
 
-void Chip8::run() {
-
-	sf::RenderWindow window{ { 800, 600 }, "Window" };
-	
-
-
-	while (window.isOpen())
-	{
-		sf::Event event;
-		while (window.pollEvent(event))
-		{
-			if (event.type == sf::Event::Closed)
-				window.close();
-
-		}
-		if(!waitForKey)
-			runCycle();
-
-		if (canDraw)
-			draw(window);
-		
-	}
-}
 
 void Chip8::displayvReg() {
 

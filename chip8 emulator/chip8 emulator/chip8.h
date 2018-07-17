@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <SFML/Graphics.hpp>
+#include <TGUI/TGUI.hpp>
+#include <string>
 
 using namespace std;
 
@@ -15,11 +17,13 @@ public:
 	void loadRom(string fileName);
 	void runCycle();
 	void draw(sf::RenderWindow &window);
+	void checkForInput(sf::Event eve);
 
 	void run();
 
 	void clearScreen();
 	void displayvReg();
+	void buttonPress(char *text);
 
 	uint8_t vReg[16];            //the 16 data registers
 	uint8_t addr[4096];     //represents each memory address
@@ -69,7 +73,13 @@ public:
 	};
 
 	//SFML/TGUI variables
-	
+	tgui::Gui gui;
+	sf::Keyboard::Key sfmlKeys[16] = {
+		sf::Keyboard::Key::Q,sf::Keyboard::Key::W,sf::Keyboard::Key::E,sf::Keyboard::Key::R,
+		sf::Keyboard::Key::T,sf::Keyboard::Key::Y,sf::Keyboard::Key::U,sf::Keyboard::Key::I,
+		sf::Keyboard::Key::A,sf::Keyboard::Key::S,sf::Keyboard::Key::D,sf::Keyboard::Key::F,
+		sf::Keyboard::Key::G,sf::Keyboard::Key::H,sf::Keyboard::Key::J,sf::Keyboard::Key::K
+	};
 	
 };
 
