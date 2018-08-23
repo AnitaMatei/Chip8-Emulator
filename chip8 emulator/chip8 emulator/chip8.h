@@ -24,6 +24,7 @@ public:
 	void clearScreen();
 	void displayvReg();
 	void buttonPress(char *text);
+	void drawPixelBits();
 
 	uint8_t vReg[16];            //the 16 data registers
 	uint8_t addr[4096];     //represents each memory address
@@ -40,6 +41,9 @@ public:
 	ifstream rom;
 	bool canDraw=false;
 	bool waitForKey=false;
+	double totalTime;
+	uint8_t frames;
+	uint8_t frameCap;
 
 	uint8_t keys[16] = {
 	/*	'0','1','2','3',

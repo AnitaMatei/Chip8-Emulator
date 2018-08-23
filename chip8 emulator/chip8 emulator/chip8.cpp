@@ -9,13 +9,15 @@ void Chip8::clearScreen() {
 void Chip8::draw(sf::RenderWindow &window) {
 	window.clear();
 	gui.draw();
-	for (int i = 0; i < 64 * 32; i++) {
-		sf::RectangleShape pixelRect(sf::Vector2f(0,0));
-		pixelRect.setSize(sf::Vector2f(10, 10));
-		pixelRect.setPosition((i % 64)*10, ((i / 32)*10));
-		if (pixels[i] == 0x1) {
-			pixelRect.setFillColor(sf::Color::Yellow);
-			window.draw(pixelRect);
+	sf::RectangleShape pixelRect(sf::Vector2f(0, 0));
+	for (int i = 0; i < 32; i++) {
+		for (int j = 0; j < 64; j++) {
+			pixelRect.setSize(sf::Vector2f(10, 10));
+			pixelRect.setPosition(j * 10, i * 10);
+			if (pixels[i*64+j] == 0x0) {
+				pixelRect.setFillColor(sf::Color::Yellow);
+				window.draw(pixelRect);
+			}
 		}
 	}
 	window.display();
@@ -48,6 +50,9 @@ void Chip8::initialize() {
 	sp = 0x0;
 	delayTimer = 0x0;
 	soundTimer = 0x0;
+	frames = 0;
+	totalTime = 0.0;
+	frameCap = 1;
 
 	for (int i = 0; i < 16; i++)
 	{
@@ -83,8 +88,8 @@ void Chip8::run() {
 
 	gui.setTarget(window);
 	vector <tgui::Button::Ptr> buttons;
+	sf::Clock clock;
 
-	cout << "ye";
 	for (int i = 0; i < 16; i++)
 	{
 		tgui::Button::Ptr c = tgui::Button::create();
@@ -101,31 +106,44 @@ void Chip8::run() {
 
 	while (window.isOpen())
 	{
-		sf::Event event;
-		while (window.pollEvent(event))
+
+		//calculating number of frames
+		totalTime += clock.restart().asSeconds();
+		if (totalTime >= 1.0)
 		{
-			if (event.type == sf::Event::Closed)
-				window.close();
-			gui.handleEvent(event);
-			checkForInput(event);
+			frames = 0;
+			totalTime = 0.0;
 		}
+
+
+		sf::Event event;
+		if (frames < frameCap) {
+			while (window.pollEvent(event))
+			{
+				if (event.type == sf::Event::Closed)
+					window.close();
+				gui.handleEvent(event);
+				checkForInput(event);
+			}
 			runCycle();
 
-		if (canDraw)
-			draw(window);
-
+			if (canDraw)
+				draw(window);
+			frames++;
+		}
 	}
 }
 
 
 void Chip8::runCycle() {
 	opcode = (addr[pc] << 8) | addr[pc + 1];
-	cout << hex << (int)opcode << endl;
 	//displayvReg();
+	//cout << hex << (int)opcode << endl;
+	drawPixelBits();
 	switch (opcode & 0xF000) {          //organizing cases by the first nibble from left
 		//0x0---
 		case 0x0000:
-			switch (opcode) {
+			switch (opcode & 0x00FF) {
 				//0x00E0
 				case 0x00E0:		//Clears the screen.
 					clearScreen();
@@ -402,4 +420,17 @@ void Chip8::displayvReg() {
 	for (int i = 0; i < 16; i++)
 		cout << hex<<(int)vReg[i]<<dec << ", ";
 	cout << "}"<<endl;
+}
+
+void Chip8::drawPixelBits() {
+	for (int i = 0; i < 64 * 32; i++)
+	{
+		cout <<hex<< pixels[i];
+		if (i % 64 == 0)
+			cout << endl;
+	}
+
+	cout << endl << endl;
+
+
 }
